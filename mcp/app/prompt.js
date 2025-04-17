@@ -323,14 +323,16 @@ export const Prompt = ({ onSend }) => {
 
   const handleTagClick = useCallback(
     (tagElement) => {
+      // Remove active class from all tagged elements
+      document
+        .querySelectorAll(".tagged-text.active")
+        .forEach((el) => el.classList.remove("active"));
       // If clicking on the same tag that's already active, do nothing
       if (tagElement === activeTagElement && tooltipVisible) {
         return;
       }
-
-      // Set this as the active tag
+      tagElement.classList.add("active");
       setActiveTagElement(tagElement);
-
       // Show the tooltip for this tag
       showTooltip(tagElement.dataset.body, tagElement.dataset.file);
     },

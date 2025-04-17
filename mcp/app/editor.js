@@ -65,14 +65,13 @@ export const Editor = ({
     const rawContent = editor.innerHTML;
     const textContent = editor.textContent.trim();
 
-    // More aggressive detection of "empty" state
-    if (
+    const isEmpty =
       textContent === "" ||
       rawContent === "" ||
       rawContent === "<br>" ||
       rawContent === "&nbsp;" ||
-      /^(\s|&nbsp;|<br\s*\/?>|<div>(<br\s*\/?>)*<\/div>)*$/i.test(rawContent)
-    ) {
+      /^(\s|&nbsp;|<br\s*\/?>|<div>(<br\s*\/?>)*<\/div>)*$/i.test(rawContent);
+    if (isEmpty) {
       // Complete reset
       editor.innerHTML = "";
 
@@ -171,11 +170,70 @@ export const Tooltip = ({
   onMouseLeave,
 }) => {
   const codeRef = useRef(null);
+  const contentRef = useRef(null);
 
   useEffect(() => {
     if (isVisible && bodyText && codeRef.current) {
+      // First render the code with highlighting
       codeRef.current.textContent = bodyText;
       hljs.highlightElement(codeRef.current);
+
+      // Get the tag text (without the trigger character)
+      const tagElement = document.querySelector(".tagged-text.active");
+      if (!tagElement) return;
+
+      const tagText = tagElement.textContent;
+      const searchTerm =
+        tagText.charAt(0) === "#" ||
+        tagText.charAt(0) === "/" ||
+        tagText.charAt(0) === "@"
+          ? tagText.substring(1)
+          : tagText;
+
+      if (searchTerm && contentRef.current) {
+        // Wait for highlight.js to finish rendering
+        setTimeout(() => {
+          // Find all text nodes in the code element
+          const walker = document.createTreeWalker(
+            codeRef.current,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+          );
+
+          let node;
+          let found = false;
+
+          // Walk through all text nodes looking for a match
+          while ((node = walker.nextNode()) && !found) {
+            const nodeText = node.textContent;
+            const matchIndex = nodeText
+              .toLowerCase()
+              .indexOf(searchTerm.toLowerCase());
+
+            if (matchIndex !== -1) {
+              // We found the text! Get the containing element
+              const matchElement = node.parentElement;
+
+              // Scroll the element into view
+              matchElement.scrollIntoView({
+                behavior: "instant",
+                block: "center",
+              });
+
+              // highlight the matching element
+              const originalBackground = matchElement.style.background;
+              matchElement.style.background = "rgba(255, 255, 0, 0.3)";
+              // Remove highlight after a short delay
+              setTimeout(() => {
+                matchElement.style.background = originalBackground;
+              }, 2000);
+
+              found = true;
+            }
+          }
+        }, 108); // Small delay to ensure highlight.js is complete
+      }
     }
   }, [isVisible, bodyText]);
 
@@ -207,7 +265,7 @@ export const Tooltip = ({
           </div>
         </div>
       </div>
-      <div class="tooltip-content">
+      <div class="tooltip-content" ref=${contentRef}>
         ${bodyText
           ? html`<pre><code class=${langClass} ref=${codeRef}>${bodyText}</code></pre>`
           : "No content available"}
