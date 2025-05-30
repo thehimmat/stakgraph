@@ -1,3 +1,4 @@
+// src/sage/src/app.ts
 import express from "express";
 import bodyParser from "body-parser";
 import { StakworkService } from "./services/stakwork.js";
@@ -50,12 +51,15 @@ export class App {
   private initializeAdapters(): Record<Adapter, ChatAdapter> {
     const adapters = EmptyAdapters();
 
-    const { owner, repo, token } = this.config.github;
+    const { owner, repo, app_id, private_key, installation_id } =
+      this.config.github;
 
-    if (token && owner && repo) {
+    if (app_id && private_key && installation_id && owner && repo) {
       const DATA_DIR = this.config.data_dir || "./data";
       const githubAdapter = new GitHubIssueAdapter(
-        token,
+        app_id,
+        private_key,
+        installation_id,
         owner,
         repo,
         DATA_DIR

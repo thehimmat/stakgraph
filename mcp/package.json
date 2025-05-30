@@ -19,6 +19,7 @@
     "@anthropic-ai/sdk": "^0.37.0",
     "@microsoft/tiktokenizer": "^1.0.9",
     "@modelcontextprotocol/sdk": "^1.4.1",
+    "@octokit/auth-app": "^8.0.1",
     "@octokit/rest": "^21.1.1",
     "archy": "^1.0.0",
     "axios": "^1.9.0",

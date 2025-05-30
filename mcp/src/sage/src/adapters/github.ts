@@ -1,4 +1,6 @@
+// src/sage/src/adapters/github.ts
 import { Octokit } from "@octokit/rest";
+import { createAppAuth } from "@octokit/auth-app";
 import { BaseAdapter } from "./adapter.js";
 import { Message } from "../types/index.js";
 import * as fs from "fs";
@@ -14,13 +16,25 @@ export class GitHubIssueAdapter extends BaseAdapter {
   private persistFilePath: string;
 
   constructor(
-    githubToken: string,
+    appId: string,
+    privateKey: string,
+    installationId: string,
     owner: string,
     repo: string,
     dataDir: string = "./data"
   ) {
     super();
-    this.octokit = new Octokit({ auth: githubToken });
+
+    // Create GitHub App authentication
+    this.octokit = new Octokit({
+      authStrategy: createAppAuth,
+      auth: {
+        appId: appId,
+        privateKey: privateKey,
+        installationId: installationId,
+      },
+    });
+
     this.owner = owner;
     this.repo = repo;
     this.dataDir = dataDir;
@@ -30,8 +44,11 @@ export class GitHubIssueAdapter extends BaseAdapter {
     );
   }
 
+  // ... rest of the methods remain the same
   async initialize(): Promise<void> {
-    console.log(`Initializing GitHub adapter for ${this.owner}/${this.repo}`);
+    console.log(
+      `Initializing GitHub App adapter for ${this.owner}/${this.repo}`
+    );
 
     // Ensure data directory exists
     await this.ensureDataDirExists();
@@ -49,6 +66,7 @@ export class GitHubIssueAdapter extends BaseAdapter {
     }, 60000); // Check every minute
   }
 
+  // ... rest of the methods remain exactly the same
   async sendResponse(chatId: string, message: Message): Promise<void> {
     // Extract issue number from chatId
     const issueNumber = parseInt(chatId.replace("github-issue-", ""), 10);
