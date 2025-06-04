@@ -8,6 +8,9 @@ export interface ChatAdapter {
   onMessageReceived(
     callback: (chatId: string, message: Message) => Promise<void>
   ): void;
+  // New methods for webhook storage
+  storeWebhook(chatId: string, webhook: string): void;
+  getWebhook(chatId: string): string | undefined;
 }
 
 export abstract class BaseAdapter implements ChatAdapter {
@@ -19,6 +22,9 @@ export abstract class BaseAdapter implements ChatAdapter {
     /* default no-op implementation */
   };
 
+  // Map to store webhooks for each chat ID
+  protected webhooks: Map<string, string> = new Map();
+
   abstract initialize(): Promise<void>;
   abstract sendResponse(chatId: string, message: Message): Promise<void>;
 
@@ -26,6 +32,17 @@ export abstract class BaseAdapter implements ChatAdapter {
     callback: (chatId: string, message: Message) => Promise<void>
   ): void {
     this.messageCallback = callback;
+  }
+
+  // Default implementation for webhook storage
+  storeWebhook(chatId: string, webhook: string): void {
+    this.webhooks.set(chatId, webhook);
+    console.log(`Stored webhook for chat ID ${chatId}`);
+  }
+
+  // Default implementation for webhook retrieval
+  getWebhook(chatId: string): string | undefined {
+    return this.webhooks.get(chatId);
   }
 }
 

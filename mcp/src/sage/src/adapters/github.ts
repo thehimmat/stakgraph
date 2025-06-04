@@ -9,7 +9,7 @@ export class GitHubIssueAdapter extends BaseAdapter {
   private octokit: Octokit;
   private owner: string;
   private repo: string;
-  private processedIssues: Set<number> = new Set();
+  private processedIssues: Map<number, string> = new Map(); // issue_number -> webhook_url
   private dataDir: string;
   private persistFilePath: string;
 
@@ -66,6 +66,52 @@ export class GitHubIssueAdapter extends BaseAdapter {
     });
   }
 
+  // Override the base storeWebhook method to handle GitHub specific storage
+  override storeWebhook(chatId: string, webhook: string): void {
+    // Extract issue number from chatId
+    const issueNumber = parseInt(chatId.replace("github-issue-", ""), 10);
+
+    if (isNaN(issueNumber)) {
+      console.error(`Invalid GitHub issue chat ID for webhook storage: ${chatId}`);
+      return;
+    }
+
+    // Store in both maps for compatibility
+    super.storeWebhook(chatId, webhook); // Store in base class map
+    this.storeWebhookForIssue(issueNumber, webhook); // Store in issue-specific map
+  }
+
+  // Override the base getWebhook method to handle GitHub specific retrieval
+  override getWebhook(chatId: string): string | undefined {
+    // Extract issue number from chatId
+    const issueNumber = parseInt(chatId.replace("github-issue-", ""), 10);
+
+    if (isNaN(issueNumber)) {
+      console.error(`Invalid GitHub issue chat ID for webhook retrieval: ${chatId}`);
+      return undefined;
+    }
+
+    // Try to get from issue-specific map first, fall back to base class map
+    return this.getWebhookForIssue(issueNumber) || super.getWebhook(chatId);
+  }
+
+  // Legacy method maintained for compatibility
+  public storeWebhookForIssue(issueNumber: number, webhook: string): void {
+    this.processedIssues.set(issueNumber, webhook);
+    // Save immediately when webhook is stored
+    this.saveProcessedIssues().catch((error) => {
+      console.error(
+        "Error saving processed issues after webhook storage:",
+        error
+      );
+    });
+  }
+
+  // Legacy method maintained for compatibility
+  public getWebhookForIssue(issueNumber: number): string | undefined {
+    return this.processedIssues.get(issueNumber);
+  }
+
   private async ensureDataDirExists(): Promise<void> {
     if (!fs.existsSync(this.dataDir)) {
       await fs.promises.mkdir(this.dataDir, { recursive: true });
@@ -77,29 +123,46 @@ export class GitHubIssueAdapter extends BaseAdapter {
     try {
       if (fs.existsSync(this.persistFilePath)) {
         const data = await fs.promises.readFile(this.persistFilePath, "utf-8");
-        const issues = JSON.parse(data);
-        this.processedIssues = new Set(issues);
-        console.log(
-          `Loaded ${this.processedIssues.size} previously processed issues`
-        );
+        const parsed = JSON.parse(data);
+
+        // Handle both old format (array) and new format (object)
+        if (Array.isArray(parsed)) {
+          // Old format: convert array to Map with empty webhook strings
+          this.processedIssues = new Map(parsed.map((id) => [id, ""]));
+          console.log(
+            `Loaded ${this.processedIssues.size} previously processed issues (old format)`
+          );
+        } else {
+          // New format: object with issue_number -> webhook mapping
+          this.processedIssues = new Map(
+            Object.entries(parsed).map(([key, value]) => [
+              parseInt(key),
+              value as string,
+            ])
+          );
+          console.log(
+            `Loaded ${this.processedIssues.size} previously processed issues with webhooks`
+          );
+        }
       } else {
         console.log("No previously processed issues found");
       }
     } catch (error) {
       console.error("Error loading processed issues:", error);
-      // Continue with empty set if loading fails
+      // Continue with empty map if loading fails
     }
   }
 
   private async saveProcessedIssues(): Promise<void> {
     try {
-      const issues = Array.from(this.processedIssues);
+      // Convert Map to object for JSON storage
+      const issuesObject = Object.fromEntries(this.processedIssues);
       await fs.promises.writeFile(
         this.persistFilePath,
-        JSON.stringify(issues),
+        JSON.stringify(issuesObject, null, 2),
         "utf-8"
       );
-      console.log(`Saved ${issues.length} processed issues`);
+      console.log(`Saved ${this.processedIssues.size} processed issues`);
     } catch (error) {
       console.error("Error saving processed issues:", error);
     }
@@ -152,7 +215,7 @@ export class GitHubIssueAdapter extends BaseAdapter {
           console.log(`Extracted codespace URL: ${extractedCodespaceUrl}`);
         }
 
-        this.processedIssues.add(issue.number);
+        this.processedIssues.set(issue.number, ""); // Store with empty webhook initially
         newIssuesProcessed = true;
 
         try {

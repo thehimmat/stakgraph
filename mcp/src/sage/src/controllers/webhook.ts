@@ -45,6 +45,21 @@ export class WebhookController {
         content: payload.value?.response,
       });
 
+      // Extract and store the webhook if it exists
+      const webhookToStore = payload.value?.artifacts
+        ?.find((artifact) => artifact.type === "action")
+        ?.content.options.find(
+          (option) => option.action_type === "chat"
+        )?.webhook;
+
+      if (webhookToStore) {
+        console.log("=> webhookToStore", webhookToStore);
+        
+        // Use the new interface method to store the webhook
+        adapter.storeWebhook(chatId, webhookToStore);
+        console.log(`Stored webhook for chat ID ${chatId}`);
+      }
+
       res.status(200).json({
         success: true,
         message: "Webhook processed successfully",

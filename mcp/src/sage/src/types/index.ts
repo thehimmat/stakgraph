@@ -28,10 +28,23 @@ export interface WebhookPayload {
 export interface ChatMessageArtifact {
   id: string;
   type: ArtifactType;
-  content: any;
+  content: ActionArtifactContent;
 }
 
-export type ArtifactType = string;
+// render "WebhookPayload.response" and "ActionArtifactContent.actionText" and send to "ActionArtifactContentOption.webhook"
+export type ArtifactType = "action" | string;
+
+export interface ActionArtifactContent {
+  actionText: string;
+  options: ActionArtifactContentOption[];
+}
+
+export interface ActionArtifactContentOption {
+  action_type: "chat" | string;
+  option_label: string;
+  option_response: "textbox" | string;
+  webhook: string;
+}
 
 export interface StakworkChatPayload {
   name: string;
