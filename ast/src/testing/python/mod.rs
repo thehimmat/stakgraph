@@ -1,5 +1,5 @@
 use crate::lang::graphs::{EdgeType, NodeType};
-use crate::lang::Graph;
+use crate::lang::{Graph, Node};
 use crate::{lang::Lang, repo::Repo};
 use std::str::FromStr;
 
@@ -14,6 +14,8 @@ pub async fn test_python_generic<G: Graph>() -> Result<(), anyhow::Error> {
     .unwrap();
 
     let graph = repo.build_graph_inner::<G>().await?;
+
+    graph.analysis();
 
     let (num_nodes, num_edges) = graph.get_graph_size();
     assert_eq!(num_nodes, 86, "Expected 86 nodes");
@@ -90,6 +92,61 @@ from flask_app.routes import flask_bp"#
 
     let imported_edges = graph.count_edges_of_type(EdgeType::Imports);
     assert_eq!(imported_edges, 7, "Expected 7 import edges");
+
+    let person_class = graph
+        .find_nodes_by_name(NodeType::Class, "Person")
+        .into_iter()
+        .find(|n| n.file == "src/testing/python/model.py")
+        .map(|n| Node::new(NodeType::Class, n))
+        .expect("Person class not found in model.py");
+
+    let create_or_edit_person_dm = graph
+        .find_nodes_by_name(NodeType::DataModel, "CreateOrEditPerson")
+        .into_iter()
+        .find(|n| n.file == "src/testing/python/model.py")
+        .map(|n| Node::new(NodeType::DataModel, n))
+        .expect("CreateOrEditPerson DataModel not found in model.py");
+
+    let model_py_file = graph
+        .find_nodes_by_name(NodeType::File, "model.py")
+        .into_iter()
+        .find(|n| n.file == "src/testing/python/model.py")
+        .map(|n| Node::new(NodeType::File, n))
+        .expect("model.py file node not found");
+
+    let fastapi_post_endpoint = graph
+        .find_nodes_by_name(NodeType::Endpoint, "/person/")
+        .into_iter()
+        .find(|n| {
+            n.file == "src/testing/python/fastapi_app/routes.py"
+                && n.meta.get("verb") == Some(&"POST".to_string())
+        })
+        .map(|n| Node::new(NodeType::Endpoint, n))
+        .expect("FastAPI /person/ POST endpoint not found");
+
+    let create_person_fn = graph
+        .find_nodes_by_name(NodeType::Function, "create_person")
+        .into_iter()
+        .find(|n| n.file == "src/testing/python/fastapi_app/routes.py")
+        .map(|n| Node::new(NodeType::Function, n))
+        .expect("create_person function not found in fastapi_app/routes.py");
+
+    assert!(
+        graph.has_edge(&model_py_file, &person_class, EdgeType::Contains),
+        "Expected 'model.py' file to contain 'Person' class"
+    );
+    assert!(
+        graph.has_edge(
+            &model_py_file,
+            &create_or_edit_person_dm,
+            EdgeType::Contains
+        ),
+        "Expected 'model.py' file to contain 'CreateOrEditPerson' DataModel"
+    );
+    assert!(
+        graph.has_edge(&fastapi_post_endpoint, &create_person_fn, EdgeType::Handler),
+        "Expected FastAPI '/person/' POST endpoint to be handled by 'create_person'"
+    );
 
     Ok(())
 }

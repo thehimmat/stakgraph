@@ -1,5 +1,5 @@
 use crate::lang::graphs::{EdgeType, NodeType};
-use crate::lang::Graph;
+use crate::lang::{Graph, Node};
 use crate::{lang::Lang, repo::Repo};
 use anyhow::Result;
 use std::str::FromStr;
@@ -21,7 +21,7 @@ pub async fn test_kotlin_generic<G: Graph>() -> Result<(), anyhow::Error> {
     graph.analysis();
 
     assert_eq!(num_nodes, 167, "Expected 167 nodes");
-    assert_eq!(num_edges, 187, "Expected 187 edges");
+    assert_eq!(num_edges, 198, "Expected 198 edges");
 
     fn normalize_path(path: &str) -> String {
         path.replace("\\", "/")
@@ -112,6 +112,57 @@ import com.kotlintestapp.db.PersonDatabase"#
     let import_edges_count = graph.count_edges_of_type(EdgeType::Imports);
     assert_eq!(import_edges_count, 6, "Expected at 6 import edges");
 
+    let person_data_model = data_models
+        .iter()
+        .find(|dm| {
+            dm.name == "Person"
+                && normalize_path(&dm.file)
+                    == "src/testing/kotlin/app/src/main/java/com/kotlintestapp/models/Person.kt"
+        })
+        .map(|n| Node::new(NodeType::DataModel, n.clone()))
+        .expect("Person DataModel not found");
+
+    let database_helper_class = classes
+    .iter()
+    .find(|c| c.name == "DatabaseHelper" && normalize_path(&c.file) == "src/testing/kotlin/app/src/main/java/com/kotlintestapp/sqldelight/DatabaseHelper.kt")
+    .map(|n| Node::new(NodeType::Class, n.clone()))
+    .expect("DatabaseHelper class not found");
+
+    let insert_person_fn = functions
+    .iter()
+    .find(|f| f.name == "insertPerson" && normalize_path(&f.file) == "src/testing/kotlin/app/src/main/java/com/kotlintestapp/sqldelight/DatabaseHelper.kt")
+    .map(|n| Node::new(NodeType::Function, n.clone()))
+    .expect("insertPerson function not found");
+
+    let update_person_fn = functions
+    .iter()
+    .find(|f| f.name == "updatePerson" && normalize_path(&f.file) == "src/testing/kotlin/app/src/main/java/com/kotlintestapp/sqldelight/DatabaseHelper.kt")
+    .map(|n| Node::new(NodeType::Function, n.clone()))
+    .expect("updatePerson function not found");
+
+    let person_kt_file = graph
+        .find_nodes_by_name(NodeType::File, "Person.kt")
+        .into_iter()
+        .find(|n| {
+            normalize_path(&n.file)
+                == "src/testing/kotlin/app/src/main/java/com/kotlintestapp/models/Person.kt"
+        })
+        .map(|n| Node::new(NodeType::File, n))
+        .expect("Person.kt file node not found");
+
+    assert!(
+        graph.has_edge(&database_helper_class, &insert_person_fn, EdgeType::Operand),
+        "Expected DatabaseHelper class to operand insertPerson function"
+    );
+
+    assert!(
+        graph.has_edge(&database_helper_class, &update_person_fn, EdgeType::Operand),
+        "Expected DatabaseHelper class to operand updatePerson function"
+    );
+    assert!(
+        graph.has_edge(&person_kt_file, &person_data_model, EdgeType::Contains),
+        "Expected Person.kt file to contain Person DataModel"
+    );
     Ok(())
 }
 

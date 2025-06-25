@@ -761,6 +761,17 @@ impl Graph for ArrayGraph {
             .map(|node| node.node_data.clone())
             .collect()
     }
+    fn has_edge(&self, source: &Node, target: &Node, edge_type: EdgeType) -> bool {
+        self.edges.iter().any(|edge| {
+            edge.edge == edge_type
+                && edge.source.node_type == source.node_type
+                && edge.source.node_data.name == source.node_data.name
+                && edge.source.node_data.file == source.node_data.file
+                && edge.target.node_type == target.node_type
+                && edge.target.node_data.name == target.node_data.name
+                && edge.target.node_data.file == target.node_data.file
+        })
+    }
 }
 
 impl ArrayGraph {

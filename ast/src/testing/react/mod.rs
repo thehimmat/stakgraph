@@ -1,5 +1,5 @@
 use crate::lang::graphs::{EdgeType, NodeType};
-use crate::lang::Graph;
+use crate::lang::{Graph, Node};
 use crate::utils::get_use_lsp;
 use crate::{lang::Lang, repo::Repo};
 use std::str::FromStr;
@@ -20,11 +20,11 @@ pub async fn test_react_typescript_generic<G: Graph>() -> Result<(), anyhow::Err
 
     let (num_nodes, num_edges) = graph.get_graph_size();
     if use_lsp == true {
-        assert_eq!(num_nodes, 72, "Expected 72 nodes");
-        assert_eq!(num_edges, 93, "Expected 93 edges");
+        assert_eq!(num_nodes, 76, "Expected 76 nodes");
+        assert_eq!(num_edges, 101, "Expected 101 edges");
     } else {
-        assert_eq!(num_nodes, 66, "Expected 66 nodes");
-        assert_eq!(num_edges, 79, "Expected 79 edges");
+        assert_eq!(num_nodes, 70, "Expected 70 nodes");
+        assert_eq!(num_edges, 88, "Expected 88 edges");
     }
 
     fn normalize_path(path: &str) -> String {
@@ -78,13 +78,13 @@ import NewPerson from "./components/NewPerson";"#
     );
 
     assert_eq!(import_test_file.body, app_body, "Body of App is incorrect");
-    assert_eq!(imports.len(), 5, "Expected 5 imports");
+    assert_eq!(imports.len(), 6, "Expected 6 imports");
 
     let functions = graph.find_nodes_by_type(NodeType::Function);
     if use_lsp == true {
-        assert_eq!(functions.len(), 22, "Expected 22 functions/components");
+        assert_eq!(functions.len(), 23, "Expected 23 functions/components");
     } else {
-        assert_eq!(functions.len(), 16, "Expected 16 functions/components");
+        assert_eq!(functions.len(), 17, "Expected 17 functions/components");
     }
 
     let mut sorted_functions = functions.clone();
@@ -168,13 +168,13 @@ import NewPerson from "./components/NewPerson";"#
     assert_eq!(requests.len(), 2, "Expected 2 requests");
 
     let calls_edges_count = graph.count_edges_of_type(EdgeType::Calls);
-    assert_eq!(calls_edges_count, 11, "Expected 11 calls edges");
+    assert_eq!(calls_edges_count, 12, "Expected 12 calls edges");
 
     let pages = graph.find_nodes_by_type(NodeType::Page);
     assert_eq!(pages.len(), 2, "Expected 2 pages");
 
     let variables = graph.find_nodes_by_type(NodeType::Var);
-    assert_eq!(variables.len(), 5, "Expected 5 variables");
+    assert_eq!(variables.len(), 6, "Expected 6 variables");
 
     let renders_edges_count = graph.count_edges_of_type(EdgeType::Renders);
     assert_eq!(renders_edges_count, 2, "Expected 2 renders edges");
@@ -190,6 +190,121 @@ import NewPerson from "./components/NewPerson";"#
         "Page file path is incorrect"
     );
 
+    let people_fn = functions
+        .iter()
+        .find(|f| {
+            f.name == "People"
+                && normalize_path(&f.file) == "src/testing/react/src/components/People.tsx"
+        })
+        .map(|n| Node::new(NodeType::Function, n.clone()))
+        .expect("People component not found");
+    let new_person_fn = functions
+        .iter()
+        .find(|f| {
+            f.name == "NewPerson"
+                && normalize_path(&f.file) == "src/testing/react/src/components/NewPerson.tsx"
+        })
+        .map(|n| Node::new(NodeType::Function, n.clone()))
+        .expect("NewPerson component not found");
+    let submit_button_fn = functions
+        .iter()
+        .find(|f| {
+            f.name == "SubmitButton"
+                && normalize_path(&f.file) == "src/testing/react/src/components/NewPerson.tsx"
+        })
+        .map(|n| Node::new(NodeType::Function, n.clone()))
+        .expect("SubmitButton component not found");
+    let people_page = pages
+        .iter()
+        .find(|p| p.name == "/people" && normalize_path(&p.file) == "src/testing/react/src/App.tsx")
+        .map(|n| Node::new(NodeType::Page, n.clone()))
+        .expect("'/people' page not found");
+
+    assert!(
+        graph.has_edge(&people_page, &people_fn, EdgeType::Renders),
+        "Expected '/people' page to render People component"
+    );
+    assert!(
+        graph.has_edge(&new_person_fn, &submit_button_fn, EdgeType::Calls),
+        "Expected NewPerson component to call SubmitButton component"
+    );
+
+    let use_store_fn = functions
+        .iter()
+        .find(|f| {
+            f.name == "useStore"
+                && normalize_path(&f.file) == "src/testing/react/src/components/Person.tsx"
+        })
+        .map(|n| Node::new(NodeType::Function, n.clone()))
+        .expect("useStore hook not found in Person.tsx");
+
+    let people_fn_data = functions
+        .iter()
+        .find(|f| {
+            f.name == "People"
+                && normalize_path(&f.file) == "src/testing/react/src/components/People.tsx"
+        })
+        .expect("People component not found");
+
+    let data_models = graph.find_nodes_by_type(NodeType::DataModel);
+    let store_state_dm = data_models
+        .iter()
+        .find(|dm| {
+            dm.name == "StoreState"
+                && normalize_path(&dm.file) == "src/testing/react/src/components/Person.tsx"
+        })
+        .map(|n| Node::new(NodeType::DataModel, n.clone()))
+        .expect("StoreState DataModel not found in Person.tsx");
+
+    let person_dm = data_models
+        .iter()
+        .find(|dm| {
+            dm.name == "Person"
+                && normalize_path(&dm.file) == "src/testing/react/src/components/Person.tsx"
+        })
+        .map(|n| Node::new(NodeType::DataModel, n.clone()))
+        .expect("Person DataModel not found in Person.tsx");
+
+    assert!(
+        graph.has_edge(
+            &Node::new(NodeType::Function, people_fn_data.clone()),
+            &use_store_fn,
+            EdgeType::Calls
+        ),
+        "Expected People component to call useStore hook"
+    );
+
+    assert!(
+        graph.has_edge(&use_store_fn, &store_state_dm, EdgeType::Contains),
+        "Expected useStore to contain StoreState DataModel"
+    );
+
+    assert!(
+        graph.has_edge(&use_store_fn, &person_dm, EdgeType::Contains),
+        "Expected useStore to contain Person DataModel"
+    );
+
+    let person_tsx_file = graph
+        .find_nodes_by_name(NodeType::File, "Person.tsx")
+        .into_iter()
+        .find(|n| normalize_path(&n.file) == "src/testing/react/src/components/Person.tsx")
+        .map(|n| Node::new(NodeType::File, n))
+        .expect("Person.tsx file node not found");
+
+    assert!(
+        graph.has_edge(&person_tsx_file, &use_store_fn, EdgeType::Contains),
+        "Expected Person.tsx file to contain useStore function"
+    );
+
+    assert!(
+        graph.has_edge(&person_tsx_file, &store_state_dm, EdgeType::Contains),
+        "Expected Person.tsx file to contain StoreState DataModel"
+    );
+
+    assert!(
+        graph.has_edge(&person_tsx_file, &person_dm, EdgeType::Contains),
+        "Expected Person.tsx file to contain Person DataModel"
+    );
     Ok(())
 }
 

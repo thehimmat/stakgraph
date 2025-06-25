@@ -180,15 +180,16 @@ impl Lang {
             let tree = self.lang.parse(&code, &NodeType::Class)?;
             let mut cursor = QueryCursor::new();
             let mut matches = cursor.matches(&qo, tree.root_node(), code.as_bytes());
-            
+
             let mut template_urls = Vec::new();
             let mut style_urls = Vec::new();
             let mut component_name = String::new();
-            
+
             let class_query = self.q(&self.lang.class_definition_query(), &NodeType::Class);
             let mut class_cursor = QueryCursor::new();
-            let mut class_matches = class_cursor.matches(&class_query, tree.root_node(), code.as_bytes());
-            
+            let mut class_matches =
+                class_cursor.matches(&class_query, tree.root_node(), code.as_bytes());
+
             if let Some(class_match) = class_matches.next() {
                 for o in class_query.capture_names().iter() {
                     if let Some(ci) = class_query.capture_index_for_name(&o) {
@@ -202,15 +203,15 @@ impl Lang {
                     }
                 }
             }
-            
+
             if component_name.is_empty() {
                 return Ok(Vec::new());
             }
-            
+
             while let Some(m) = matches.next() {
                 let mut key = String::new();
                 let mut value = String::new();
-                
+
                 for o in qo.capture_names().iter() {
                     if let Some(ci) = qo.capture_index_for_name(&o) {
                         let mut nodes = m.nodes_for_capture_index(ci);
@@ -224,14 +225,14 @@ impl Lang {
                         }
                     }
                 }
-                
+
                 if !key.is_empty() && !value.is_empty() {
                     if key == "templateUrl" {
                         let template_url = parse::trim_quotes(&value);
                         template_urls.push(template_url.to_string());
                     } else if key == "styleUrls" {
                         if value.starts_with("[") && value.ends_with("]") {
-                            let array_content = &value[1..value.len()-1];
+                            let array_content = &value[1..value.len() - 1];
                             for style_url in array_content.split(",") {
                                 let style_url = parse::trim_quotes(style_url.trim());
                                 if !style_url.is_empty() {
@@ -242,63 +243,65 @@ impl Lang {
                     }
                 }
             }
-            
+
             let mut edges = Vec::new();
             let component = NodeData::name_file(&component_name, file);
-            
+
             for template_url in template_urls {
                 let mut path = template_url;
                 if path.starts_with("./") {
                     path = path[2..].to_string();
                 }
-                
-                let dir = std::path::Path::new(file).parent()
+
+                let dir = std::path::Path::new(file)
+                    .parent()
                     .map(|p| p.to_string_lossy().to_string())
                     .unwrap_or_default();
-                
+
                 let full_path = if dir.is_empty() {
                     path.clone()
                 } else {
                     format!("{}/{}", dir, path)
                 };
-                
+
                 let template_name = std::path::Path::new(&path)
                     .file_stem()
                     .and_then(|s| s.to_str())
                     .unwrap_or("template");
-                
+
                 let page = NodeData::name_file(template_name, &full_path);
                 edges.push(Edge::renders(&component, &page));
             }
-            
+
             for style_url in style_urls {
                 let mut path = style_url;
                 if path.starts_with("./") {
                     path = path[2..].to_string();
                 }
-                
-                let dir = std::path::Path::new(file).parent()
+
+                let dir = std::path::Path::new(file)
+                    .parent()
                     .map(|p| p.to_string_lossy().to_string())
                     .unwrap_or_default();
-                
+
                 let full_path = if dir.is_empty() {
                     path.clone()
                 } else {
                     format!("{}/{}", dir, path)
                 };
-                
+
                 let style_name = std::path::Path::new(&path)
                     .file_stem()
                     .and_then(|s| s.to_str())
                     .unwrap_or("style");
-                
+
                 let page = NodeData::name_file(style_name, &full_path);
                 edges.push(Edge::renders(&component, &page));
             }
-            
+
             return Ok(edges);
         }
-        
+
         Ok(Vec::new())
     }
     pub fn get_identifier_for_node(&self, node: TreeNode, code: &str) -> Result<Option<String>> {

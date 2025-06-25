@@ -1,5 +1,5 @@
 use crate::lang::graphs::{EdgeType, NodeType};
-use crate::lang::Graph;
+use crate::lang::{Graph, Node};
 use crate::{lang::Lang, repo::Repo};
 use std::str::FromStr;
 
@@ -69,6 +69,43 @@ use std::net::SocketAddr;"#
     let calls_edges = graph.count_edges_of_type(EdgeType::Contains);
     assert_eq!(calls_edges, 63, "Expected 63 contains edges");
 
+    let functions = graph.find_nodes_by_type(NodeType::Function);
+
+    let get_person_fn = functions
+        .iter()
+        .find(|f| f.name == "get_person" && f.file.ends_with("src/routes/actix_routes.rs"))
+        .map(|n| Node::new(NodeType::Function, n.clone()))
+        .expect("get_person function not found in actix_routes.rs");
+
+    let create_person_fn = functions
+        .iter()
+        .find(|f| f.name == "create_person" && f.file.ends_with("src/routes/actix_routes.rs"))
+        .map(|n| Node::new(NodeType::Function, n.clone()))
+        .expect("create_person function not found in actix_routes.rs");
+
+    let endpoints = graph.find_nodes_by_type(NodeType::Endpoint);
+
+    let get_person_endpoint = endpoints
+        .iter()
+        .find(|e| e.name == "/person/{id}" && e.file.ends_with("src/routes/actix_routes.rs"))
+        .map(|n| Node::new(NodeType::Endpoint, n.clone()))
+        .expect("GET /person/{id} endpoint not found in actix_routes.rs");
+
+    let post_person_endpoint = endpoints
+        .iter()
+        .find(|e| e.name == "/person" && e.file.ends_with("src/routes/actix_routes.rs"))
+        .map(|n| Node::new(NodeType::Endpoint, n.clone()))
+        .expect("POST /person endpoint not found in actix_routes.rs");
+
+    assert!(
+        graph.has_edge(&get_person_endpoint, &get_person_fn, EdgeType::Handler),
+        "Expected '/person/id' endpoint to be handled by get_person"
+    );
+
+    assert!(
+        graph.has_edge(&post_person_endpoint, &create_person_fn, EdgeType::Handler),
+        "Expected '/person' endpoint to be handled by create_person"
+    );
     Ok(())
 }
 

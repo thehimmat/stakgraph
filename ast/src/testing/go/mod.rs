@@ -1,5 +1,5 @@
 use crate::lang::graphs::{EdgeType, NodeType};
-use crate::lang::Graph;
+use crate::lang::{Graph, Node};
 use crate::utils::get_use_lsp;
 use crate::{lang::Lang, repo::Repo};
 use std::str::FromStr;
@@ -73,6 +73,14 @@ pub async fn test_go_generic<G: Graph>() -> Result<(), anyhow::Error> {
         "Class file path is incorrect"
     );
 
+    let functions = graph.find_nodes_by_type(NodeType::Function);
+    assert!(
+        functions
+            .iter()
+            .any(|f| f.name == "NewRouter" && f.file == "src/testing/go/routes.go"),
+        "Function 'NewRouter' not found"
+    );
+
     let class_function_edges =
         graph.find_nodes_with_edge_type(NodeType::Class, NodeType::Function, EdgeType::Operand);
     assert_eq!(class_function_edges.len(), 4, "Expected 4 methods");
@@ -98,8 +106,52 @@ pub async fn test_go_generic<G: Graph>() -> Result<(), anyhow::Error> {
     let post_endpoint = endpoints
         .iter()
         .find(|e| e.name == "/person" && e.meta.get("verb") == Some(&"POST".to_string()))
+        .map(|e| Node::new(NodeType::Endpoint, e.clone()))
         .expect("POST endpoint not found");
-    assert_eq!(post_endpoint.file, "src/testing/go/routes.go");
+    assert_eq!(post_endpoint.node_data.file, "src/testing/go/routes.go");
+
+    let create_person_fn = graph
+        .find_nodes_by_name(NodeType::Function, "CreatePerson")
+        .into_iter()
+        .find(|n| n.file == "src/testing/go/routes.go")
+        .map(|nd| Node::new(NodeType::Function, nd))
+        .expect("CreatePerson function not found");
+
+    assert!(
+        graph.has_edge(&post_endpoint, &create_person_fn, EdgeType::Handler),
+        "Expected '/person' endpoint to be handled by 'CreatePerson'"
+    );
+
+    let main_fn = graph
+        .find_nodes_by_name(NodeType::Function, "main")
+        .into_iter()
+        .find(|n| n.file == "src/testing/go/main.go")
+        .map(|nd| Node::new(NodeType::Function, nd))
+        .expect("main function not found");
+
+    let init_db_fn = graph
+        .find_nodes_by_name(NodeType::Function, "InitDB")
+        .into_iter()
+        .find(|n| n.file == "src/testing/go/db.go")
+        .map(|nd| Node::new(NodeType::Function, nd))
+        .expect("InitDB function not found");
+
+    assert!(
+        graph.has_edge(&main_fn, &init_db_fn, EdgeType::Calls),
+        "Expected 'main' to call 'InitDB'"
+    );
+
+    let new_router_fn = graph
+        .find_nodes_by_name(NodeType::Function, "NewRouter")
+        .into_iter()
+        .find(|n| n.file == "src/testing/go/routes.go")
+        .map(|nd| Node::new(NodeType::Function, nd))
+        .expect("NewRouter function not found in routes.go");
+    assert_eq!(new_router_fn.node_data.name, "NewRouter");
+    assert!(
+        graph.has_edge(&main_fn, &new_router_fn, EdgeType::Calls),
+        "Expected 'main' to call 'NewRouter'"
+    );
 
     let handler_edges_count = graph.count_edges_of_type(EdgeType::Handler);
     assert_eq!(handler_edges_count, 2, "Expected 2 handler edges");

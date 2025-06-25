@@ -1,4 +1,4 @@
-use crate::lang::{Edge, Lang, NodeType};
+use crate::lang::{Edge, Lang, Node, NodeType};
 use crate::lang::{Function, FunctionCall};
 use anyhow::Result;
 use std::collections::HashSet;
@@ -133,4 +133,5 @@ pub trait Graph: Default + Debug {
             .into_iter()
             .find(|node| node.file == file && node.start == line as usize)
     }
+    fn has_edge(&self, source: &Node, target: &Node, edge_type: EdgeType) -> bool;
 }

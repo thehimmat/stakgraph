@@ -1,7 +1,7 @@
 use anyhow::Result;
+use ast::utils::{logger, print_json};
 use ast::{self, lang::Lang, repo::Repo};
 use std::str::FromStr;
-use ast::utils::{logger, print_json};
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {

@@ -76,7 +76,7 @@ impl Stack for Kotlin {
 
     fn function_call_query(&self) -> String {
         format!(
-            r#"
+            "
              (call_expression
         	    (simple_identifier) @{FUNCTION_NAME}
              )@{FUNCTION_CALL}
@@ -88,68 +88,56 @@ impl Stack for Kotlin {
                     )
                 )
             )@{FUNCTION_CALL}
-        "#
+        "
         )
     }
 
     //GIVEN
     fn function_definition_query(&self) -> String {
         format!(
-            r#"
-            (function_declaration
-                (simple_identifier) @{FUNCTION_NAME}
-            (function_value_parameters)
-            )@{FUNCTION_DEFINITION}
-
-            (function_declaration
-                (simple_identifier) @{FUNCTION_NAME}
-                    (function_value_parameters
-                        (parameter
-                            (simple_identifier) @{ARGUMENTS}
-                                (user_type
-                            (type_identifier) @parameter_type
-                        )
+            "(
+                (class_declaration
+                    (type_identifier)? @{PARENT_TYPE}
+                    (class_body
+                    (function_declaration
+                        (simple_identifier) @{FUNCTION_NAME}
+                        (function_value_parameters) @{ARGUMENTS}
+                    ) @{FUNCTION_DEFINITION}
                     )
                 )
-            )@{FUNCTION_DEFINITION}
-
-            (function_declaration
-                (modifiers
-                    (member_modifier) @modifier
                 )
-                (simple_identifier) @{FUNCTION_NAME}
-            )@{FUNCTION_DEFINITION}
-            "#
+
+                (
+                (function_declaration
+                    (simple_identifier) @{FUNCTION_NAME}
+                    (function_value_parameters) @{ARGUMENTS}
+                ) @{FUNCTION_DEFINITION}
+                )
+            "
         )
     }
 
     fn find_function_parent(
         &self,
         node: TreeNode,
-        code: &str,
+        _code: &str,
         file: &str,
         func_name: &str,
-        _callback: &dyn Fn(&str) -> Option<NodeData>,
-        _parent_type: Option<&str>,
+        find_class: &dyn Fn(&str) -> Option<NodeData>,
+        parent_type: Option<&str>,
     ) -> Result<Option<Operand>> {
-        let mut parent = node.parent();
-        while parent.is_some() && parent.unwrap().kind().to_string() != "class_declaration" {
-            parent = parent.unwrap().parent();
+        if parent_type.is_none() {
+            return Ok(None);
         }
-        let parent_of = match parent {
-            Some(p) => {
-                let query = self.q(&self.identifier_query(), &NodeType::Class);
-                match query_to_ident(query, p, code)? {
-                    Some(parent_name) => Some(Operand {
-                        source: NodeKeys::new(&parent_name, file, p.start_position().row),
-                        target: NodeKeys::new(func_name, file, node.start_position().row),
-                    }),
-                    None => None,
-                }
-            }
+        let parent_type = parent_type.unwrap();
+        let nodedata = find_class(parent_type);
+        Ok(match nodedata {
+            Some(class) => Some(Operand {
+                source: NodeKeys::new(&class.name, &class.file, class.start),
+                target: NodeKeys::new(func_name, file, node.start_position().row),
+            }),
             None => None,
-        };
-        Ok(parent_of)
+        })
     }
 
     fn request_finder(&self) -> Option<String> {

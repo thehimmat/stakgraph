@@ -1,6 +1,9 @@
 use anyhow::Result;
-use ast::{lang::Lang, repo::{Repo, Repos}};
 use ast::utils::{logger, print_json};
+use ast::{
+    lang::Lang,
+    repo::{Repo, Repos},
+};
 use std::str::FromStr;
 
 /*

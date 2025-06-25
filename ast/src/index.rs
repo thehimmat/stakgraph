@@ -19,6 +19,8 @@ export REPO_PATH=/Users/evanfeenstra/code/sphinx2/tribes-workspace/sphinx-tribes
 
 export REPO_PATH=/Users/evanfeenstra/code/sphinx2/stakgraph/ast/examples/senza-lnd
 
+export REPO_URL=https://github.com/stakwork/sphinx-ios-v2
+
 */
 
 #[tokio::main]

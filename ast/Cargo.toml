@@ -13,6 +13,7 @@ lsp = { path = "../lsp" }
 tokio = { version = "1.27.0", features = ["full"] }
 git2 = "0.20.0"
 
+tree-sitter = "0.25.6"
 tree-sitter-rust = "0.23.0"
 tree-sitter-go = "0.23.1"
 # tree-sitter-javascript = "0.23.0"
@@ -29,7 +30,7 @@ tree-sitter-bash = "0.23.0"
 tree-sitter-toml-ng = { git = "https://github.com/tree-sitter-grammars/tree-sitter-toml", rev = "64b56832c2cffe41758f28e05c756a3a98d16f41" }
 tree-sitter-embedded-template = "0.23.0"
 tree-sitter-haml = { git = "https://github.com/Evanfeenstra/tree-sitter-haml" }
-tree-sitter = "0.24.3"
+# tree-sitter = "0.24.3"
 serde_json = "1.0.132"
 serde = { version = "1", features = ["derive"] }
 anyhow = "1"
@@ -37,7 +38,8 @@ walkdir = "2.3"
 streaming-iterator = "0.1.9"
 git-url-parse = "0.4.5"
 tree-sitter-kotlin-sg = "0.*"
-tree-sitter-swift = "0.*"
+# tree-sitter-swift = "0.*"
+tree-sitter-swift = "0.7.1"
 tree-sitter-java = "0.23.5"
 tree-sitter-svelte-ng = "1.*"
 # gitoxide-core = { version = "0.42.0", features = ["blocking-client"] }

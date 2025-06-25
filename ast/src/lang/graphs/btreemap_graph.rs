@@ -798,6 +798,13 @@ impl Graph for BTreeMapGraph {
             })
             .count()
     }
+    fn has_edge(&self, source: &Node, target: &Node, edge_type: EdgeType) -> bool {
+        let source_key = create_node_key(source);
+        let target_key = create_node_key(target);
+        let edge = self.find_edges_by_keys(&source_key, &target_key, &edge_type);
+
+        !edge.is_empty()
+    }
 }
 
 impl BTreeMapGraph {

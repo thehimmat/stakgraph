@@ -230,16 +230,16 @@ impl Stack for Angular {
         path
     }
     fn is_extra_page(&self, file_name: &str) -> bool {
-        file_name.ends_with(".html") || 
-        file_name.ends_with(".css") || 
-        file_name.ends_with(".scss") || 
-        file_name.ends_with(".sass")
+        file_name.ends_with(".html")
+            || file_name.ends_with(".css")
+            || file_name.ends_with(".scss")
+            || file_name.ends_with(".sass")
     }
-    
+
     fn use_extra_page_finder(&self) -> bool {
         true
     }
-    
+
     fn extra_page_finder(
         &self,
         file_path: &str,
@@ -248,46 +248,53 @@ impl Stack for Angular {
         let path = std::path::Path::new(file_path);
         let extension = path.extension()?.to_str()?;
         let file_stem = path.file_stem()?.to_str()?;
-        
+
         if extension == "html" {
-            let component_name = format!("{}Component", file_stem.replace("-", " ")
-                .split_whitespace()
-                .map(|s| {
-                    let mut c = s.chars();
-                    match c.next() {
-                        None => String::new(),
-                        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
-                    }
-                })
-                .collect::<String>());
-            
+            let component_name = format!(
+                "{}Component",
+                file_stem
+                    .replace("-", " ")
+                    .split_whitespace()
+                    .map(|s| {
+                        let mut c = s.chars();
+                        match c.next() {
+                            None => String::new(),
+                            Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+                        }
+                    })
+                    .collect::<String>()
+            );
+
             let component_file = format!("{}.component.ts", file_stem);
-            
+
+            if let Some(component) = find_fn(&component_name, &component_file) {
+                let page = NodeData::name_file(file_stem, file_path);
+                return Some(Edge::renders(&component, &page));
+            }
+        } else if extension == "css" || extension == "scss" || extension == "sass" {
+            let component_name = format!(
+                "{}Component",
+                file_stem
+                    .replace("-", " ")
+                    .split_whitespace()
+                    .map(|s| {
+                        let mut c = s.chars();
+                        match c.next() {
+                            None => String::new(),
+                            Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
+                        }
+                    })
+                    .collect::<String>()
+            );
+
+            let component_file = format!("{}.component.ts", file_stem);
+
             if let Some(component) = find_fn(&component_name, &component_file) {
                 let page = NodeData::name_file(file_stem, file_path);
                 return Some(Edge::renders(&component, &page));
             }
         }
-        else if extension == "css" || extension == "scss" || extension == "sass" {
-            let component_name = format!("{}Component", file_stem.replace("-", " ")
-                .split_whitespace()
-                .map(|s| {
-                    let mut c = s.chars();
-                    match c.next() {
-                        None => String::new(),
-                        Some(f) => f.to_uppercase().collect::<String>() + c.as_str(),
-                    }
-                })
-                .collect::<String>());
-            
-            let component_file = format!("{}.component.ts", file_stem);
-            
-            if let Some(component) = find_fn(&component_name, &component_file) {
-                let page = NodeData::name_file(file_stem, file_path);
-                return Some(Edge::renders(&component, &page));
-            }
-        }
-        
+
         None
     }
 }

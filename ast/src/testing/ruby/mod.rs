@@ -1,5 +1,5 @@
 use crate::lang::graphs::{EdgeType, NodeType};
-use crate::lang::Graph;
+use crate::lang::{Graph, Node};
 use crate::{lang::Lang, repo::Repo};
 use std::str::FromStr;
 use test_log::test;
@@ -165,6 +165,54 @@ pub async fn test_ruby_generic<G: Graph>() -> Result<(), anyhow::Error> {
     assert_eq!(calls, 14, "Expected 14 call edges");
     let contains = graph.count_edges_of_type(EdgeType::Contains);
     assert_eq!(contains, 93, "Expected 93 contains edges");
+
+    let classes = graph.find_nodes_by_type(NodeType::Class);
+    let data_models = graph.find_nodes_by_type(NodeType::DataModel);
+    println!("Data Models: {:?}", data_models);
+    let functions = graph.find_nodes_by_type(NodeType::Function);
+
+    let people_controller_class = classes
+        .iter()
+        .find(|c| {
+            c.name == "PeopleController" && c.file.ends_with("app/controllers/people_controller.rb")
+        })
+        .map(|n| Node::new(NodeType::Class, n.clone()))
+        .expect("PeopleController class not found");
+
+    let people_data_model = data_models
+        .iter()
+        .find(|dm| dm.name == "people" && dm.file.ends_with("src/testing/ruby/db/schema.rb"))
+        .map(|n| Node::new(NodeType::DataModel, n.clone()))
+        .expect("people DataModel not found");
+
+    let get_person_endpoint = graph
+        .find_nodes_by_type(NodeType::Endpoint)
+        .into_iter()
+        .find(|e| e.name == "person/:id" && e.meta.get("verb") == Some(&"GET".to_string()))
+        .map(|n| Node::new(NodeType::Endpoint, n))
+        .expect("GET person/:id endpoint not found");
+
+    let get_person_fn = functions
+        .iter()
+        .find(|f| {
+            f.name == "get_person" && f.file.ends_with("app/controllers/people_controller.rb")
+        })
+        .map(|n| Node::new(NodeType::Function, n.clone()))
+        .expect("get_person function not found");
+
+    assert!(
+        graph.has_edge(
+            &people_controller_class,
+            &people_data_model,
+            EdgeType::Contains
+        ),
+        "Expected PeopleController to contain people DataModel"
+    );
+
+    assert!(
+        graph.has_edge(&get_person_endpoint, &get_person_fn, EdgeType::Handler),
+        "Expected 'person/:id' endpoint to be handled by get_person"
+    );
     Ok(())
 }
 

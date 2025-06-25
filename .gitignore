@@ -51,3 +51,5 @@ ecosystem.config.js
 
 # Root level package-lock (empty, already ignored in mcp/)
 package-lock.json
+
+mcp/tmp

@@ -1,5 +1,5 @@
 use crate::lang::graphs::{EdgeType, NodeType};
-use crate::lang::Graph;
+use crate::lang::{Graph, Node};
 use crate::utils::get_use_lsp;
 use crate::{lang::Lang, repo::Repo};
 use std::str::FromStr;
@@ -16,7 +16,7 @@ pub async fn test_typescript_generic<G: Graph>() -> Result<(), anyhow::Error> {
 
     let graph = repo.build_graph_inner::<G>().await?;
 
-    // graph.analysis();
+    graph.analysis();
 
     let (num_nodes, num_edges) = graph.get_graph_size();
     if use_lsp {
@@ -109,7 +109,7 @@ import {{ sequelize }} from "./config.js";"#
             "Expected 51 contains edges"
         );
     } else {
-        assert_eq!(contains, 53, "Expected 3 contains edges");
+        assert_eq!(contains, 53, "Expected 53 contains edges");
     }
 
     let import_edges_count = graph.count_edges_of_type(EdgeType::Imports);
@@ -119,6 +119,55 @@ import {{ sequelize }} from "./config.js";"#
         assert_eq!(import_edges_count, 12, "Expected 12 import edges");
     }
 
+    let create_person_fn = functions
+        .iter()
+        .find(|f| {
+            f.name == "createPerson"
+                && normalize_path(&f.file) == "src/testing/typescript/src/routes.ts"
+        })
+        .map(|n| Node::new(NodeType::Function, n.clone()))
+        .expect("createPerson function not found");
+
+    let get_person_fn = functions
+        .iter()
+        .find(|f| {
+            f.name == "getPerson"
+                && normalize_path(&f.file) == "src/testing/typescript/src/routes.ts"
+        })
+        .map(|n| Node::new(NodeType::Function, n.clone()))
+        .expect("getPerson function not found");
+
+    let endpoints = graph.find_nodes_by_type(NodeType::Endpoint);
+
+    let post_person_endpoint = endpoints
+        .iter()
+        .find(|e| {
+            e.name == "/person"
+                && normalize_path(&e.file) == "src/testing/typescript/src/routes.ts"
+                && e.meta.get("verb") == Some(&"POST".to_string())
+        })
+        .map(|n| Node::new(NodeType::Endpoint, n.clone()))
+        .expect("POST /person endpoint not found");
+
+    assert!(
+        graph.has_edge(&post_person_endpoint, &create_person_fn, EdgeType::Handler),
+        "Expected '/person' POST endpoint to be handled by createPerson"
+    );
+
+    let get_person_endpoint = endpoints
+        .iter()
+        .find(|e| {
+            e.name == "/person/:id"
+                && normalize_path(&e.file) == "src/testing/typescript/src/routes.ts"
+                && e.meta.get("verb") == Some(&"GET".to_string())
+        })
+        .map(|n| Node::new(NodeType::Endpoint, n.clone()))
+        .expect("GET /person/:id endpoint not found");
+
+    assert!(
+        graph.has_edge(&get_person_endpoint, &get_person_fn, EdgeType::Handler),
+        "Expected '/person/:id' GET endpoint to be handled by getPerson"
+    );
     Ok(())
 }
 

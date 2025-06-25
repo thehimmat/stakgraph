@@ -1,6 +1,6 @@
 use super::{neo4j_utils::*, *};
 use crate::utils::sync_fn;
-use crate::{lang::Function, Lang};
+use crate::{lang::Function, lang::Node, Lang};
 use anyhow::Result;
 use neo4rs::{query, BoltMap, Graph as Neo4jConnection};
 use std::str::FromStr;
@@ -964,6 +964,24 @@ impl Neo4jGraph {
 
         txn_manager.execute().await
     }
+
+    pub async fn has_edge_async(&self, source: &Node, target: &Node, edge_type: EdgeType) -> bool {
+        let connection = self.get_connection();
+
+        let (query_str, params) = has_edge_query(source, target, &edge_type);
+
+        let mut query_obj = query(&query_str);
+        for (key, value) in params.value.iter() {
+            query_obj = query_obj.param(key.value.as_str(), value.clone());
+        }
+
+        if let Ok(mut result) = connection.execute(query_obj).await {
+            if let Ok(Some(row)) = result.next().await {
+                return row.get::<bool>("exists").unwrap_or(false);
+            }
+        }
+        false
+    }
 }
 
 impl Graph for Neo4jGraph {
@@ -1199,5 +1217,8 @@ impl Graph for Neo4jGraph {
 
     fn find_node_at(&self, node_type: NodeType, file: &str, line: u32) -> Option<NodeData> {
         sync_fn(|| async { self.find_node_at_async(node_type, file, line).await })
+    }
+    fn has_edge(&self, source: &Node, target: &Node, edge_type: EdgeType) -> bool {
+        sync_fn(|| async { self.has_edge_async(source, target, edge_type).await })
     }
 }

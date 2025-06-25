@@ -1,5 +1,5 @@
 use crate::lang::graphs::{EdgeType, NodeType};
-use crate::lang::Graph;
+use crate::lang::{Graph, Node};
 
 use crate::{lang::Lang, repo::Repo};
 use std::str::FromStr;
@@ -104,6 +104,74 @@ pub async fn test_cpp_generic<G: Graph>() -> Result<(), anyhow::Error> {
 
     let instances = graph.find_nodes_by_type(NodeType::Instance);
     assert_eq!(instances.len(), 1, "Expected 1 instances");
+
+    let person_data_model = graph
+        .find_nodes_by_name(NodeType::DataModel, "Person")
+        .into_iter()
+        .find(|n| n.file == "src/testing/cpp/model.h")
+        .map(|n| Node::new(NodeType::DataModel, n))
+        .expect("Person DataModel not found in model.h");
+
+    let database_class = graph
+        .find_nodes_by_name(NodeType::Class, "Database")
+        .into_iter()
+        .find(|n| n.file == "src/testing/cpp/model.h")
+        .map(|n| Node::new(NodeType::Class, n))
+        .expect("Database class not found in model.h");
+
+    let main_fn = graph
+        .find_nodes_by_name(NodeType::Function, "main")
+        .into_iter()
+        .find(|n| n.file == "src/testing/cpp/main.cpp")
+        .map(|n| Node::new(NodeType::Function, n))
+        .expect("main function not found in main.cpp");
+
+    let setup_routes_fn = graph
+        .find_nodes_by_name(NodeType::Function, "setup_routes")
+        .into_iter()
+        .find(|n| n.file == "src/testing/cpp/routes.cpp")
+        .map(|n| Node::new(NodeType::Function, n))
+        .expect("setup_routes function not found in routes.cpp");
+
+    let post_endpoint = graph
+        .find_nodes_by_name(NodeType::Endpoint, "/person")
+        .into_iter()
+        .find(|n| {
+            n.file == "src/testing/cpp/routes.cpp"
+                && n.meta.get("verb") == Some(&"POST".to_string())
+        })
+        .map(|n| Node::new(NodeType::Endpoint, n))
+        .expect("POST /person endpoint not found in routes.cpp");
+    let new_person_fn = graph
+        .find_nodes_by_name(NodeType::Function, "new_person")
+        .into_iter()
+        .find(|n| n.file == "src/testing/cpp/routes.cpp")
+        .map(|n| Node::new(NodeType::Function, n))
+        .expect("new_person function not found in routes.cpp");
+
+    let model_h_file = graph
+        .find_nodes_by_name(NodeType::File, "model.h")
+        .into_iter()
+        .find(|n| n.file == "src/testing/cpp/model.h")
+        .map(|n| Node::new(NodeType::File, n))
+        .expect("model.h file node not found");
+
+    assert!(
+        graph.has_edge(&model_h_file, &person_data_model, EdgeType::Contains),
+        "Expected 'Database' class to contain 'Person' DataModel"
+    );
+    assert!(
+        graph.has_edge(&model_h_file, &database_class, EdgeType::Contains),
+        "Expected 'Database' class to contain 'Person' DataModel"
+    );
+    assert!(
+        graph.has_edge(&main_fn, &setup_routes_fn, EdgeType::Calls),
+        "Expected 'main' function to call 'setup_routes' function"
+    );
+    assert!(
+        graph.has_edge(&post_endpoint, &new_person_fn, EdgeType::Handler),
+        "Expected '/person' endpoint to be handled by 'new_person'"
+    );
 
     Ok(())
 }

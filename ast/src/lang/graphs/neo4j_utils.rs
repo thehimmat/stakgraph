@@ -1,3 +1,4 @@
+use crate::lang::Node;
 use crate::utils::create_node_key;
 use anyhow::Result;
 use lazy_static::lazy_static;
@@ -5,7 +6,6 @@ use neo4rs::{query, BoltMap, BoltType, ConfigBuilder, Graph as Neo4jConnection};
 use std::sync::{Arc, Once};
 use tiktoken_rs::get_bpe_from_model;
 use tracing::{debug, info};
-
 
 use super::*;
 
@@ -20,7 +20,12 @@ const DATA_BANK: &str = "Data_Bank";
 pub struct Neo4jConnectionManager;
 
 impl Neo4jConnectionManager {
-    pub async fn initialize(uri: &str, username: &str, password: &str, database: &str) -> Result<()> {
+    pub async fn initialize(
+        uri: &str,
+        username: &str,
+        password: &str,
+        database: &str,
+    ) -> Result<()> {
         let mut conn_guard = CONNECTION.lock().await;
         if conn_guard.is_some() {
             return Ok(());
@@ -91,7 +96,6 @@ impl NodeQueryBuilder {
 
         let token_count = calculate_token_count(&self.node_data.body).unwrap_or(0);
         boltmap_insert_int(&mut properties, "token_count", token_count);
-        
 
         let query = format!(
             "MERGE (node:{}:{} {{node_key: $node_key}})
@@ -341,11 +345,7 @@ pub fn find_nodes_by_name_contains_query(
 
     (query, params)
 }
-pub fn find_nodes_in_range_query(
-    node_type: &NodeType,
-    file: &str,
-    row: u32,
-) -> (String, BoltMap) {
+pub fn find_nodes_in_range_query(node_type: &NodeType, file: &str, row: u32) -> (String, BoltMap) {
     let mut params = BoltMap::new();
     boltmap_insert_str(&mut params, "node_type", &node_type.to_string());
     boltmap_insert_str(&mut params, "file", file);
@@ -426,26 +426,28 @@ pub fn find_handlers_for_endpoint_query(endpoint: &NodeData) -> (String, BoltMap
     boltmap_insert_str(&mut params, "endpoint_file", &endpoint.file);
     boltmap_insert_int(&mut params, "endpoint_start", endpoint.start as i64);
 
-    let query = 
-        format!("MATCH (endpoint:Endpoint {{name: $endpoint_name, file: $endpoint_file, start: $endpoint_start}})-[:HANDLER]->(handler)
-         RETURN handler");
+    let query = format!(
+        "MATCH (endpoint:Endpoint {{name: $endpoint_name, file: $endpoint_file, start: $endpoint_start}})
+        -[:HANDLER]->(handler)
+        RETURN handler");
 
     (query, params)
 }
 
 pub fn check_direct_data_model_usage_query(
-    function_name: &str, 
-    data_model: &str
+    function_name: &str,
+    data_model: &str,
 ) -> (String, BoltMap) {
     let mut params = BoltMap::new();
 
     boltmap_insert_str(&mut params, "function_name", function_name);
     boltmap_insert_str(&mut params, "data_model", data_model);
 
-    let query = 
-        format!("MATCH (f:Function {{name: $function_name}})-[:CONTAINS]->(n:Datamodel)
+    let query = format!(
+        "MATCH (f:Function {{name: $function_name}})-[:CONTAINS]->(n:Datamodel)
          WHERE n.name CONTAINS $data_model
-         RETURN COUNT(n) > 0 as exists");
+         RETURN COUNT(n) > 0 as exists"
+    );
 
     (query, params)
 }
@@ -456,18 +458,15 @@ pub fn find_functions_called_by_query(function: &NodeData) -> (String, BoltMap) 
     boltmap_insert_str(&mut params, "function_file", &function.file);
     boltmap_insert_int(&mut params, "function_start", function.start as i64);
 
-    let query = 
-        format!("MATCH (source:Function {{name: $function_name, file: $function_file, start: $function_start}})-[:CALLS]->(target:Function)
-         RETURN target");
+    let query = format!(
+        "MATCH (source:Function {{name: $function_name, file: $function_file, start: $function_start}})
+        -[:CALLS]->(target:Function)
+        RETURN target");
 
     (query, params)
 }
 
-pub fn find_node_at_query(
-    node_type: &NodeType,
-    file: &str,
-    line: u32,
-) -> (String, BoltMap) {
+pub fn find_node_at_query(node_type: &NodeType, file: &str, line: u32) -> (String, BoltMap) {
     let mut params = BoltMap::new();
     boltmap_insert_str(&mut params, "node_type", &node_type.to_string());
     boltmap_insert_str(&mut params, "file", file);
@@ -490,7 +489,6 @@ pub fn all_nodes_and_edges_query() -> (String, String) {
     let edge_query = "MATCH ()-[r]->() RETURN DISTINCT type(r) as edge_type";
 
     (node_query.to_string(), edge_query.to_string())
-
 }
 
 pub fn filter_out_nodes_without_children_query(
@@ -498,9 +496,8 @@ pub fn filter_out_nodes_without_children_query(
     child_type: NodeType,
     _child_meta_key: &str,
 ) -> (String, BoltMap) {
-
     let mut params = BoltMap::new();
-    
+
     boltmap_insert_str(&mut params, "parent_type", &parent_type.to_string());
     boltmap_insert_str(&mut params, "child_type", &child_type.to_string());
 
@@ -520,7 +517,6 @@ pub fn filter_out_nodes_without_children_query(
     (query, params)
 }
 
-
 pub fn class_inherits_query() -> String {
     "MATCH (c:Class)
     WHERE c.parent IS NOT NULL
@@ -539,7 +535,11 @@ pub fn class_includes_query() -> String {
 }
 pub fn prefix_paths_query(root: &str) -> (String, BoltMap) {
     let mut params = BoltMap::new();
-    let root = if root.ends_with('/') { root.to_string() } else { format!("{}/", root) };
+    let root = if root.ends_with('/') {
+        root.to_string()
+    } else {
+        format!("{}/", root)
+    };
     boltmap_insert_str(&mut params, "root", &root);
 
     let query = "MATCH (n)
@@ -593,7 +593,6 @@ pub fn add_functions_query(
     boltmap_insert_str(&mut params, "function_file", &function_node.file);
     boltmap_insert_int(&mut params, "function_start", function_node.start as i64);
 
-
     let query_str = format!(
         "MATCH (function:Function {{name: $function_name, file: $function_file, start: $function_start}}),
                (file:File {{file: $function_file}})
@@ -640,7 +639,7 @@ pub fn add_functions_query(
 pub fn add_test_node_query(
     test_data: &NodeData,
     test_type: &NodeType,
-    test_edge: &Option<Edge>
+    test_edge: &Option<Edge>,
 ) -> Vec<(String, BoltMap)> {
     let mut queries = Vec::new();
 
@@ -667,10 +666,7 @@ pub fn add_test_node_query(
     queries
 }
 
-pub fn add_page_query(
-    page_data: &NodeData,
-    edge_opt: &Option<Edge>
-) -> Vec<(String, BoltMap)> {
+pub fn add_page_query(page_data: &NodeData, edge_opt: &Option<Edge>) -> Vec<(String, BoltMap)> {
     let mut queries = Vec::new();
 
     queries.push(add_node_query(&NodeType::Page, page_data));
@@ -682,9 +678,7 @@ pub fn add_page_query(
     queries
 }
 
-pub fn add_pages_query(
-    pages: &[(NodeData, Vec<Edge>)]
-) -> Vec<(String, BoltMap)> {
+pub fn add_pages_query(pages: &[(NodeData, Vec<Edge>)]) -> Vec<(String, BoltMap)> {
     let mut queries = Vec::new();
 
     for (page_data, edges) in pages {
@@ -698,13 +692,10 @@ pub fn add_pages_query(
     queries
 }
 
-pub fn add_endpoints_query(
-    endpoints: &[(NodeData, Option<Edge>)]
-) -> Vec<(String, BoltMap)> {
+pub fn add_endpoints_query(endpoints: &[(NodeData, Option<Edge>)]) -> Vec<(String, BoltMap)> {
     let mut queries = Vec::new();
 
     for (endpoint_data, handler_edge) in endpoints {
-
         queries.push(add_node_query(&NodeType::Endpoint, endpoint_data));
 
         if let Some(edge) = handler_edge {
@@ -762,19 +753,14 @@ pub fn add_calls_query(
 
     queries
 }
-pub fn find_endpoint_query(
-    name: &str,
-    file: &str,
-    verb: &str
-) -> (String, BoltMap) {
+pub fn find_endpoint_query(name: &str, file: &str, verb: &str) -> (String, BoltMap) {
     let mut params = BoltMap::new();
     boltmap_insert_str(&mut params, "name", name);
     boltmap_insert_str(&mut params, "verb", verb.to_uppercase().as_str());
     boltmap_insert_str(&mut params, "file", file);
     boltmap_insert_str(&mut params, "node_type", &NodeType::Endpoint.to_string());
 
-    let query = 
-        "MATCH (n:Endpoint {name: $name, file: $file})
+    let query = "MATCH (n:Endpoint {name: $name, file: $file})
          WHERE n.verb IS NULL OR toUpper(n.verb) CONTAINS $verb
          RETURN n";
 
@@ -862,11 +848,7 @@ pub fn find_group_function_query(group_function_name: &str) -> (String, BoltMap)
     (query.to_string(), params)
 }
 
-pub fn update_endpoint_name_query(
-    old_name: &str,
-    file: &str,
-    new_name: &str,
-) -> (String, BoltMap) {
+pub fn update_endpoint_name_query(old_name: &str, file: &str, new_name: &str) -> (String, BoltMap) {
     let mut params = BoltMap::new();
     boltmap_insert_str(&mut params, "old_name", old_name);
     boltmap_insert_str(&mut params, "file", file);
@@ -897,20 +879,20 @@ pub fn update_endpoint_relationships_query(
 }
 
 pub fn process_endpoint_groups_queries(
-    groups_with_endpoints: &[(NodeData, Vec<NodeData>)]
+    groups_with_endpoints: &[(NodeData, Vec<NodeData>)],
 ) -> Vec<(String, BoltMap)> {
     let mut queries = Vec::new();
 
     for (group, endpoints) in groups_with_endpoints {
         for endpoint in endpoints {
             let new_name = format!("{}{}", group.name, endpoint.name);
-            
+
             queries.push(update_endpoint_name_query(
                 &endpoint.name,
                 &endpoint.file,
                 &new_name,
             ));
-            
+
             queries.push(update_endpoint_relationships_query(
                 &endpoint.name,
                 &endpoint.file,
@@ -946,4 +928,30 @@ pub fn add_instance_of_query(instance: &NodeData, class_name: &str) -> (String, 
                  MERGE (instance)-[:OF]->(class)";
 
     (query.to_string(), params)
+}
+
+pub fn has_edge_query(source: &Node, target: &Node, edge_type: &EdgeType) -> (String, BoltMap) {
+    let mut params = BoltMap::new();
+    let source_type = &source.node_type;
+    let target_type = &target.node_type;
+
+    boltmap_insert_str(&mut params, "source_type", &source.node_type.to_string());
+    boltmap_insert_str(&mut params, "target_type", &target.node_type.to_string());
+    boltmap_insert_str(&mut params, "edge_type", &edge_type.to_string());
+    boltmap_insert_str(&mut params, "source_name", &source.node_data.name);
+    boltmap_insert_str(&mut params, "source_file", &source.node_data.file);
+    boltmap_insert_str(&mut params, "target_name", &target.node_data.name);
+    boltmap_insert_str(&mut params, "target_file", &target.node_data.file);
+
+    let query = format!(
+        "MATCH (source:{})-[r:{}]->(target:{})
+         WHERE source.name = $source_name AND source.file = $source_file
+           AND target.name = $target_name AND target.file = $target_file
+         RETURN COUNT(r) > 0 as exists",
+        source_type.to_string(),
+        edge_type.to_string(),
+        target_type.to_string()
+    );
+
+    (query, params)
 }

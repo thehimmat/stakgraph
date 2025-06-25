@@ -1,55 +1,30 @@
 import { Stagehand } from "@browserbasehq/stagehand";
-import { promises as dns } from "dns";
+import { getProvider } from "./providers.js";
 
 let STAGEHAND: Stagehand | null = null;
 
-export async function getOrCreateStagehand(browser_url?: string) {
+export async function getOrCreateStagehand() {
   if (STAGEHAND) {
     return STAGEHAND;
   }
-  const url =
-    browser_url || process.env.BROWSER_URL || "http://chrome.sphinx:9222";
-  let modelName = "gpt-4o";
-  let modelClientOptions = {
-    apiKey: process.env.OPENAI_API_KEY,
-  };
-  if (process.env.LLM_PROVIDER === "anthropic") {
-    modelName = "claude-3-7-sonnet-20250219";
-    modelClientOptions = {
-      apiKey: process.env.ANTHROPIC_API_KEY,
-    };
-  }
-  const cdpUrl = await resolve_browser_url(url);
+  let provider = getProvider();
+  console.log("initializing stagehand!", provider.model);
   const sh = new Stagehand({
     env: "LOCAL",
     domSettleTimeoutMs: 30000,
     localBrowserLaunchOptions: {
-      cdpUrl,
+      headless: true,
+      viewport: { width: 1024, height: 768 },
     },
     enableCaching: true,
-    modelName,
-    modelClientOptions,
+    modelName: provider.model,
+    modelClientOptions: {
+      apiKey: process.env[provider.api_key_env_var_name],
+    },
   });
   await sh.init();
   STAGEHAND = sh;
   return sh;
-}
-
-export async function resolve_browser_url(
-  browser_url: string
-): Promise<string> {
-  let resolvedUrl = browser_url;
-  // If using hostname, resolve to IP
-  if (browser_url.includes("chrome.sphinx")) {
-    try {
-      const { address } = await dns.lookup("chrome.sphinx");
-      resolvedUrl = browser_url.replace("chrome.sphinx", address);
-      console.log(`Resolved ${browser_url} to ${resolvedUrl}`);
-    } catch (error) {
-      console.error("DNS resolution failed:", error);
-    }
-  }
-  return resolvedUrl;
 }
 
 export function sanitize(bodyText: string) {

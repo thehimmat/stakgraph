@@ -1,5 +1,5 @@
 use crate::lang::graphs::{EdgeType, NodeType};
-use crate::lang::Graph;
+use crate::lang::{Graph, Node};
 use crate::{lang::Lang, repo::Repo};
 use anyhow::Result;
 use std::str::FromStr;
@@ -107,6 +107,79 @@ import java.util.Optional;"#
     let instances = graph.find_nodes_by_type(NodeType::Instance);
     assert_eq!(instances.len(), 0, "Expected 0 instances");
 
+    let person_class = classes
+        .iter()
+        .find(|c| {
+            c.name == "Person"
+                && normalize_path(&c.file)
+                    == "src/testing/java/src/main/java/graph/stakgraph/java/model/Person.java"
+        })
+        .map(|n| Node::new(NodeType::Class, n.clone()))
+        .expect("Person class not found");
+
+    let person_data_model = data_models
+        .iter()
+        .find(|dm| {
+            dm.name == "Person"
+                && normalize_path(&dm.file)
+                    == "src/testing/java/src/main/java/graph/stakgraph/java/model/Person.java"
+        })
+        .map(|n| Node::new(NodeType::DataModel, n.clone()))
+        .expect("Person DataModel not found");
+
+    let get_person_endpoint = requests
+    .iter()
+    .find(|e| e.name == "/person/{id}" && normalize_path(&e.file) == "src/testing/java/src/main/java/graph/stakgraph/java/controller/PersonController.java")
+    .map(|n| Node::new(NodeType::Endpoint, n.clone()))
+    .expect("GET /person/{id} endpoint not found");
+
+    let post_person_endpoint = requests
+    .iter()
+    .find(|e| e.name == "/person" && normalize_path(&e.file) == "src/testing/java/src/main/java/graph/stakgraph/java/controller/PersonController.java")
+    .map(|n| Node::new(NodeType::Endpoint, n.clone()))
+    .expect("POST /person endpoint not found");
+
+    let get_person_fn = functions
+    .iter()
+    .find(|f| f.name == "getPerson" && normalize_path(&f.file) == "src/testing/java/src/main/java/graph/stakgraph/java/controller/PersonController.java")
+    .map(|n| Node::new(NodeType::Function, n.clone()))
+    .expect("getPerson function not found");
+
+    let create_person_fn = functions
+    .iter()
+    .find(|f| f.name == "createPerson" && normalize_path(&f.file) == "src/testing/java/src/main/java/graph/stakgraph/java/controller/PersonController.java")
+    .map(|n| Node::new(NodeType::Function, n.clone()))
+    .expect("createPerson function not found");
+
+    assert!(
+        graph.has_edge(&get_person_endpoint, &get_person_fn, EdgeType::Handler),
+        "Expected '/person/id' endpoint to be handled by getPerson"
+    );
+
+    assert!(
+        graph.has_edge(&post_person_endpoint, &create_person_fn, EdgeType::Handler),
+        "Expected '/person' endpoint to be handled by createPerson"
+    );
+
+    let person_model_file = graph
+        .find_nodes_by_name(NodeType::File, "Person.java")
+        .into_iter()
+        .find(|n| {
+            normalize_path(&n.file)
+                == "src/testing/java/src/main/java/graph/stakgraph/java/model/Person.java"
+        })
+        .map(|n| crate::lang::Node::new(NodeType::File, n))
+        .expect("Person.java file node not found");
+
+    assert!(
+        graph.has_edge(&person_model_file, &person_class, EdgeType::Contains),
+        "Expected Person.java file to contain Person class"
+    );
+
+    assert!(
+        graph.has_edge(&person_model_file, &person_data_model, EdgeType::Contains),
+        "Expected Person.java file to contain Person DataModel"
+    );
     Ok(())
 }
 
