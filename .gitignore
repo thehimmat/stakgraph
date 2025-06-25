@@ -45,3 +45,9 @@ local_cache
 # Neo4j Docker Volumes
 ast/.neo4j/
 ast/conf/
+
+# PM2 ecosystem config (contains personal paths)
+ecosystem.config.js
+
+# Root level package-lock (empty, already ignored in mcp/)
+package-lock.json
