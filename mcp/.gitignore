@@ -34,3 +34,8 @@ sage_config.json
 sage_config-*
 data/*
 !data/.gitkeep
+
+# Claude Code cache and artifacts
+.claude/
+screenshots/
+tmp/

@@ -1,39 +1,39 @@
-import { Stagehand } from "@browserbasehq/stagehand";
+import { SimpleEvaluator } from "./simple-evaluator.js";
+import { TestResult } from "./types.js";
 
 export async function evaluate(
   browser_url: string,
   test_url: string,
   prompt: string
-) {
-  console.log("Creating Stagehand instance...");
+): Promise<TestResult> {
+  console.log("🚀 Starting simple evaluation...");
+  console.log(`📝 Prompt: ${prompt}`);
+  console.log(`🌐 Test URL: ${test_url}`);
+  console.log(`🔧 Browser URL: ${browser_url}`);
 
-  const stagehand = new Stagehand({
-    env: "LOCAL",
-    domSettleTimeoutMs: 30000,
-    localBrowserLaunchOptions: {
-      // docker default
-      cdpUrl: browser_url || "http://chrome.sphinx:9222",
-    },
-    enableCaching: true,
-    modelName: "gpt-4o",
-    modelClientOptions: {
-      apiKey: process.env.OPENAI_API_KEY,
-    },
-  });
+  // Create evaluator with browser_url (empty string will be ignored due to if(browserUrl) check)
+  const evaluator = new SimpleEvaluator(browser_url);
 
   try {
-    console.log("Initializing Stagehand...");
-    await stagehand.init();
-    console.log("Stagehand initialized successfully!");
+    const result = await evaluator.runTest(prompt, test_url);
 
-    console.log("Navigating to page...");
-    await stagehand.page.goto(test_url);
-    console.log("Navigation successful!");
+    console.log("\n" + "=".repeat(50));
+    console.log("📊 TEST RESULTS");
+    console.log("=".repeat(50));
+    console.log(`Status: ${result.status}`);
+    console.log(`Description: ${result.description}`);
 
-    await stagehand.close();
-    console.log("Test completed successfully!");
+    if (result.failedCriteria) {
+      console.log("\nFailed Criteria:");
+      result.failedCriteria.forEach((criterion) => {
+        console.log(`❌ ${criterion}`);
+      });
+    }
+
+    console.log("\n" + "=".repeat(50));
+    return result;
   } catch (error) {
-    console.error("Direct Stagehand test failed:", error);
-    console.error("Error stack:", error);
+    console.error("❌ Test failed:", error);
+    throw error;
   }
 }

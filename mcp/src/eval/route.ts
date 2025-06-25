@@ -7,18 +7,33 @@ const DEFAULT_BROWSER_URL =
 
 export async function evalRoutes(app: Express) {
   app.post("/evaluate", async (req: express.Request, res: express.Response) => {
-    const browser_url = await resolve_browser_url(
-      req.body.browser_url || DEFAULT_BROWSER_URL
-    );
-    console.log("browser_url", browser_url);
-    const test_url = req.body.test_url || req.body.base_url;
-    const instruction = req.body.instruction;
-    if (!test_url) {
-      res.status(400).json({ error: "Missing test_url" });
-      return;
+    try {
+      const browser_url = await resolve_browser_url(
+        req.body.browser_url || DEFAULT_BROWSER_URL
+      );
+      console.log("browser_url", browser_url);
+      const test_url = req.body.test_url || req.body.base_url;
+      const prompt = req.body.prompt || req.body.instruction;
+      
+      if (!test_url) {
+        res.status(400).json({ error: "Missing test_url" });
+        return;
+      }
+      
+      if (!prompt) {
+        res.status(400).json({ error: "Missing prompt or instruction" });
+        return;
+      }
+      
+      const result = await evaluate(browser_url, test_url, prompt);
+      res.json(result);
+    } catch (error) {
+      console.error("Evaluation failed:", error);
+      res.status(500).json({ 
+        error: "Evaluation failed", 
+        message: error instanceof Error ? error.message : "Unknown error" 
+      });
     }
-    await evaluate(browser_url, test_url, instruction);
-    res.json({ success: true });
   });
 }
 
